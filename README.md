@@ -1,4 +1,37 @@
-# Social Media Addiction Predictor
+# 🌙 Student Social Media Addiction Predictor
+
+A small end-to-end ML project: a notebook explores the **Student Social
+Media Addiction Analysis** dataset (Kaggle) and compares regressors, a
+training script turns that work into a deployable pipeline, and a
+Streamlit app serves predictions through a simple form.
+
+## Contents
+
+- [How it works](#how-it-works)
+- [What changed from the original notebook](#what-changed-from-the-original-notebook)
+- [Setup](#setup)
+- [Files](#files)
+- [Notes / assumptions](#notes--assumptions)
+- [Troubleshooting](#troubleshooting)
+
+## How it works
+
+```
+dataset.csv ──▶ train_model.py ──▶ rf_pipeline.pkl + metadata.json ──▶ app.py
+               (clean, engineer,        (encoders + model            (Streamlit
+                encode, fit RF)          bundled together)             UI)
+```
+
+1. **`train_model.py`** loads `dataset.csv`, applies the same cleaning and
+   feature engineering used in the notebook, fits a `RandomForestRegressor`
+   inside a single `sklearn.Pipeline`, and saves two artifacts:
+   - `rf_pipeline.pkl` — preprocessing (ordinal + one-hot encoding) and the
+     trained model, bundled together.
+   - `metadata.json` — dropdown options, slider ranges, and test-set metrics,
+     generated from your actual data.
+2. **`app.py`** loads those two artifacts and serves a two-tab Streamlit UI:
+   a project overview (dataset stats, EDA takeaways, model comparison) and a
+   prediction form that turns raw answers into a score from 1–9.
 
 ## What changed from the original notebook
 
@@ -27,19 +60,26 @@ prediction back — no manual encoding logic duplicated in the app.
    ```bash
    python train_model.py
    ```
-   This creates `rf_pipeline.pkl` and `metadata.json`.
+   This creates `rf_pipeline.pkl` and `metadata.json`, and prints the
+   held-out test metrics (MAE / MSE / RMSE / R²).
 4. Run the app:
    ```bash
-   streamlit run streamlit_app.py
+   streamlit run app.py
    ```
+5. Open the URL Streamlit prints (usually `http://localhost:8501`), pick
+   **Project Overview** to see the dataset and model comparison, or
+   **Predict My Score** to fill in the form and get a prediction.
 
 ## Files
 
-- `train_model.py` — rebuilds the pipeline (cleaning + encoding + Random
-  Forest) from `dataset.csv` and saves `rf_pipeline.pkl` + `metadata.json`.
-- `streamlit_app.py` — two-tab app: a project overview (dataset info, EDA
-  takeaways, model comparison) and a prediction form.
-- `requirements.txt` — dependencies.
+| File | Purpose |
+|---|---|
+| `train_model.py` | Rebuilds the pipeline (cleaning + encoding + Random Forest) from `dataset.csv` and saves `rf_pipeline.pkl` + `metadata.json`. |
+| `app.py` | Two-tab Streamlit app: project overview and a prediction form with a visual score gauge. |
+| `requirements.txt` | Dependencies. |
+| `eda_models.ipynb` | Original exploration notebook — EDA, feature engineering, and the model comparison the app's Overview tab summarizes. |
+| `rf_pipeline.pkl` *(generated)* | Fitted pipeline (encoders + model), produced by `train_model.py`. Not committed — regenerate it locally. |
+| `metadata.json` *(generated)* | Dropdown options, slider ranges, and test metrics, produced by `train_model.py`. Not committed — regenerate it locally. |
 
 ## Notes / assumptions
 
@@ -52,3 +92,5 @@ prediction back — no manual encoding logic duplicated in the app.
   internally, exactly as the notebook did.
 - The model comparison table on the Overview tab is the static result from
   the notebook's evaluation; it isn't recomputed by the app.
+- This is an educational project, not a clinical or diagnostic tool — the
+  app says so explicitly next to every prediction.
