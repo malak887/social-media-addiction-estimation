@@ -15,6 +15,7 @@ st.set_page_config(
 APP_DIR = Path(__file__).parent
 PIPELINE_PATH = APP_DIR / "rf_pipeline.pkl"
 METADATA_PATH = APP_DIR / "metadata.json"
+EDA_SUMMARY_PATH = APP_DIR / "eda_summary.json"
 
 
 MODEL_COMPARISON = pd.DataFrame(
@@ -222,6 +223,30 @@ def load_artifacts():
     return pipeline, metadata
 
 
+@st.cache_data
+def load_eda_summary():
+    if not EDA_SUMMARY_PATH.exists():
+        return None
+    with open(EDA_SUMMARY_PATH) as f:
+        return json.load(f)
+
+
+
+def get_feature_importance(pipeline):
+    """Map Random Forest feature importances back to readable names."""
+    try:
+        preprocessor = pipeline.named_steps["preprocessor"]
+        model = pipeline.named_steps["model"]
+        names = preprocessor.get_feature_names_out()
+        imp = pd.DataFrame({"Feature": names, "Importance": model.feature_importances_})
+        imp["Feature"] = (imp["Feature"].str.replace("ordinal__", "", regex=False)
+                           .str.replace("onehot__", "", regex=False)
+                           .str.replace("numeric__", "", regex=False)
+                           .str.replace("_", " ", regex=False))
+        return imp.sort_values("Importance", ascending=False).reset_index(drop=True)
+    except Exception:
+        return None
+
 def render_gauge(score: float, lo: float = 1.0, hi: float = 9.0) -> str:
     """Build an inline HTML gauge for the 1-9 addiction score scale."""
     pct = max(0.0, min(1.0, (score - lo) / (hi - lo))) * 100
@@ -247,6 +272,7 @@ def render_gauge(score: float, lo: float = 1.0, hi: float = 9.0) -> str:
 
 
 pipeline, metadata = load_artifacts()
+eda = load_eda_summary()
 
 # ------------------------------------------------------------------ Sidebar --
 with st.sidebar:
@@ -285,97 +311,117 @@ tab_overview, tab_predict = st.tabs(["Project Overview", "Predict My Score"])
 
 # ---------------------------------------------------------------- Overview --
 with tab_overview:
-    st.markdown(
-        """
-        <div class="stat-row">
-            <div class="stat-card"><div class="num">705</div><div class="label">Students surveyed</div></div>
-            <div class="stat-card"><div class="num">8</div><div class="label">Features used by the model</div></div>
-            <div class="stat-card"><div class="num">1–9</div><div class="label">Addiction score scale</div></div>
-            <div class="stat-card"><div class="num">0.98</div><div class="label">Test R² (Random Forest)</div></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    n_students = eda["n_students"] if eda else 705
+    metrics = metadata["test_metrics"] if metadata else {"R2": 0.9796, "RMSE": 0.2329, "MAE": 0.0889}
 
-    col_left, col_right = st.columns([1.1, 1])
+    st.markdown("### Dataset & model at a glance")
+    st.markdown(f"""
+    <div class="stat-row">
+      <div class="stat-card"><div class="num">{n_students}</div><div class="label">Students after cleaning</div></div>
+      <div class="stat-card"><div class="num">8</div><div class="label">Model features</div></div>
+      <div class="stat-card"><div class="num">{metrics['R2']:.3f}</div><div class="label">Random Forest R²</div></div>
+      <div class="stat-card"><div class="num">{metrics['RMSE']:.3f}</div><div class="label">Random Forest RMSE</div></div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with col_left:
-        st.markdown(
-            """
-            <div class="section-block">
-                <h3>What this predicts</h3>
-                <p style="color:#383B42; line-height:1.55;">
-                A regression model estimates a Gen Z student's
-                <strong>social media addiction score</strong> on a 1–9 scale,
-                using the <strong>Student Social Media Addiction Analysis</strong>
-                dataset from Kaggle (705 students, one row each). The target
-                column is <code>Addicted_Score</code>.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown("""
+    <div class="section-block">
+      <h3>EDA dashboard</h3>
+      <p style="color:#383B42;line-height:1.55;margin-bottom:0;">
+      Explore the target distribution, strongest dataset-level relationships,
+      platform differences, correlations, model performance, and the features
+      the deployed Random Forest relies on most.
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        st.markdown(
-            """
-            <div class="section-block">
-                <h3>Key EDA takeaways</h3>
-                <ul>
-                    <li>Daily usage hours and addiction score trend together —
-                    more time on social media tracks with a higher score,
-                    though the relationship isn't perfectly linear.</li>
-                    <li>Country showed no meaningful relationship with the
-                    target, so it was dropped.</li>
-                    <li><code>Mental_Health_Score</code> and
-                    <code>Conflicts_Over_Social_Media</code> were highly
-                    correlated; only <code>Mental_Health_Score</code> was kept
-                    to avoid redundant, collinear features.</li>
-                    <li><code>Avg_Daily_Usage_Hours</code> and
-                    <code>Sleep_Hours_Per_Night</code> were combined into one
-                    engineered feature, <code>Usage_Sleep_Ratio</code>, to
-                    capture the trade-off between the two directly.</li>
-                </ul>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+    if eda is None:
+        st.warning("No `eda_summary.json` found. Run `train_model.py` first to generate the EDA statistics.")
+    else:
+        st.markdown("### 1. Target distribution")
+        score_df = pd.DataFrame({"Students": eda["addiction_score_hist"]["counts"]},
+                                index=eda["addiction_score_hist"]["labels"])
+        st.bar_chart(score_df, height=250)
+        st.caption("Distribution of the target `Addicted_Score` on the 1–9 scale.")
 
-    with col_right:
-        st.markdown('<div class="section-block">', unsafe_allow_html=True)
-        st.markdown("<h3>Features used by the model</h3>", unsafe_allow_html=True)
-        feature_pills = [
-            "Age", "Gender", "Academic Level", "Most Used Platform",
-            "Affects Academic Performance", "Mental Health Score",
-            "Relationship Status", "Usage/Sleep Ratio",
-        ]
-        st.markdown(
-            "".join(f'<span class="feature-pill">{f}</span>' for f in feature_pills),
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            '<div class="caption-muted"><code>Usage_Sleep_Ratio</code> is '
-            'derived from daily usage hours ÷ sleep hours.</div>',
-            unsafe_allow_html=True,
-        )
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("### 2. Key relationships")
+        c1, c2 = st.columns(2)
+        with c1:
+            usage_df = pd.DataFrame({"Average addiction score": eda["usage_vs_addiction"]["avg_addiction"]},
+                                    index=eda["usage_vs_addiction"]["labels"])
+            st.bar_chart(usage_df, height=280)
+            st.caption("Average addiction score by daily usage bucket.")
+        with c2:
+            age_df = pd.DataFrame({"High-addiction rate (%)": eda["age_vs_addiction"]["addiction_rate_pct"]},
+                                  index=[str(x) for x in eda["age_vs_addiction"]["ages"]])
+            st.line_chart(age_df, height=280)
+            st.caption("Share of students with `Addicted_Score ≥ 7` by age.")
 
-        st.markdown('<div class="section-block">', unsafe_allow_html=True)
-        st.markdown("<h3>Model comparison</h3>", unsafe_allow_html=True)
-        st.caption("Several regressors, trained and compared on held-out test data:")
+        st.markdown("### 3. Platform differences")
+        platform_df = pd.DataFrame({
+            "Average usage hours": eda["platform_stats"]["avg_usage_hours"],
+            "Average addiction score": eda["platform_stats"]["avg_addiction_score"],
+        }, index=eda["platform_stats"]["platforms"])
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            st.bar_chart(platform_df[["Average addiction score"]].sort_values("Average addiction score", ascending=False), height=300)
+        with pc2:
+            st.bar_chart(platform_df[["Average usage hours"]].sort_values("Average usage hours", ascending=False), height=300)
+        st.caption("Usage intensity and addiction score are shown separately because they use different scales.")
+
+        st.markdown("### 4. Numeric correlations")
+        corr_df = pd.DataFrame(eda["correlation"]["matrix"], columns=eda["correlation"]["columns"], index=eda["correlation"]["columns"])
+        cc1, cc2 = st.columns([1.35, 1])
+        with cc1:
+            try:
+                st.dataframe(corr_df.style.background_gradient(cmap="RdBu_r", vmin=-1, vmax=1).format("{:.2f}"), use_container_width=True, height=285)
+            except Exception:
+                st.dataframe(corr_df, use_container_width=True, height=285)
+        with cc2:
+            target_corr = corr_df["Addicted_Score"].drop("Addicted_Score").sort_values(key=lambda s: s.abs(), ascending=False).to_frame("Correlation with addiction score")
+            st.dataframe(target_corr.style.format("{:.3f}"), use_container_width=True, height=285)
+            st.caption("Ranked by absolute correlation with the target. Correlation is not causation.")
+
+        st.markdown("### 5. Model comparison")
+        st.caption("Same held-out test set: lower MAE/RMSE is better; higher R² is better.")
         ranked = MODEL_COMPARISON.sort_values("RMSE").reset_index(drop=True)
-        st.bar_chart(ranked.set_index("Model")["RMSE"], height=220)
-        st.dataframe(ranked, use_container_width=True, hide_index=True)
-        st.markdown(
-            "**Random Forest** had the lowest RMSE and highest R² (≈0.98), "
-            "so it was selected as the deployed model."
-        )
-        if metadata:
-            m = metadata["test_metrics"]
-            st.info(
-                f"Currently loaded pipeline — MAE {m['MAE']} · "
-                f"RMSE {m['RMSE']} · R² {m['R2']}"
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
+        mc1, mc2 = st.columns(2)
+        with mc1:
+            st.bar_chart(ranked.set_index("Model")[["RMSE"]], height=350)
+            st.caption("RMSE — lower is better.")
+        with mc2:
+            st.bar_chart(ranked.set_index("Model")[["R2"]], height=350)
+            st.caption("R² — higher is better.")
+
+        best = ranked.iloc[0]
+        st.markdown(f"""
+        <div class="section-block">
+          <h3>Why Random Forest?</h3>
+          <p style="color:#383B42;line-height:1.55;margin-bottom:0;">
+          <strong>{best['Model']}</strong> achieved the lowest RMSE
+          (<strong>{best['RMSE']:.4f}</strong>) and highest R²
+          (<strong>{best['R2']:.4f}</strong>) in the supplied comparison, so it is the deployed model.
+          </p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.dataframe(ranked.style.format({"MAE":"{:.4f}","MSE":"{:.4f}","RMSE":"{:.4f}","R2":"{:.4f}"}).highlight_min(subset=["MAE","MSE","RMSE"], color="#E4F0EE").highlight_max(subset=["R2"], color="#E4F0EE"), use_container_width=True, hide_index=True)
+
+        importance = get_feature_importance(pipeline) if pipeline is not None else None
+        if importance is not None:
+            st.markdown("### 6. Random Forest feature importance")
+            st.caption("Relative importance inside the trained forest; this is not a causal effect.")
+            st.bar_chart(importance.head(10).set_index("Feature")[["Importance"]], height=330)
+            with st.expander("See full feature-importance table"):
+                st.dataframe(importance.style.format({"Importance":"{:.4f}"}), use_container_width=True, hide_index=True)
+
+        st.markdown("### 7. Modeling decisions")
+        d1, d2 = st.columns(2)
+        with d1:
+            st.markdown("""<div class="section-block"><h3>Features kept</h3><p style="color:#383B42;line-height:1.55;">Age · Gender · Academic Level · Most Used Platform · Affects Academic Performance · Mental Health Score · Relationship Status · Usage/Sleep Ratio</p></div>""", unsafe_allow_html=True)
+        with d2:
+            st.markdown("""<div class="section-block"><h3>Feature engineering</h3><ul><li><code>Country</code> was removed after EDA showed no meaningful relationship with the target.</li><li><code>Conflicts_Over_Social_Media</code> was removed because of redundancy with <code>Mental_Health_Score</code>.</li><li><code>Usage_Sleep_Ratio</code> combines daily usage and sleep.</li></ul></div>""", unsafe_allow_html=True)
+
+        st.caption("Charts use aggregated EDA statistics generated by `train_model.py`; individual student rows are not shipped in `eda_summary.json`.")
 
 # ------------------------------------------------------------------ Predict --
 with tab_predict:

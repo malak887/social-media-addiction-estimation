@@ -24,14 +24,20 @@ dataset.csv ──▶ train_model.py ──▶ rf_pipeline.pkl + metadata.json �
 
 1. **`train_model.py`** loads `dataset.csv`, applies the same cleaning and
    feature engineering used in the notebook, fits a `RandomForestRegressor`
-   inside a single `sklearn.Pipeline`, and saves two artifacts:
+   inside a single `sklearn.Pipeline`, and saves three artifacts:
    - `rf_pipeline.pkl` — preprocessing (ordinal + one-hot encoding) and the
      trained model, bundled together.
    - `metadata.json` — dropdown options, slider ranges, and test-set metrics,
      generated from your actual data.
-2. **`app.py`** loads those two artifacts and serves a two-tab Streamlit UI:
-   a project overview (dataset stats, EDA takeaways, model comparison) and a
-   prediction form that turns raw answers into a score from 1–9.
+   - `eda_summary.json` — aggregated EDA stats (correlations, group averages,
+     binned trends) for the app's Overview tab. It's aggregated on purpose —
+     correlations and averages, never individual student rows — so it's safe
+     to deploy even when `dataset.csv` itself isn't.
+2. **`app.py`** loads those artifacts and serves a two-tab Streamlit UI: a
+   project overview built from real EDA charts (usage vs. addiction score,
+   addiction rate by age, platform breakdown, a correlation heatmap) with the
+   model comparison tucked into an expander, and a prediction form that turns
+   raw answers into a score from 1–9.
 
 ## What changed from the original notebook
 
@@ -60,8 +66,8 @@ prediction back — no manual encoding logic duplicated in the app.
    ```bash
    python train_model.py
    ```
-   This creates `rf_pipeline.pkl` and `metadata.json`, and prints the
-   held-out test metrics (MAE / MSE / RMSE / R²).
+   This creates `rf_pipeline.pkl`, `metadata.json`, and `eda_summary.json`,
+   and prints the held-out test metrics (MAE / MSE / RMSE / R²).
 4. Run the app:
    ```bash
    streamlit run app.py
@@ -74,12 +80,13 @@ prediction back — no manual encoding logic duplicated in the app.
 
 | File | Purpose |
 |---|---|
-| `train_model.py` | Rebuilds the pipeline (cleaning + encoding + Random Forest) from `dataset.csv` and saves `rf_pipeline.pkl` + `metadata.json`. |
-| `app.py` | Two-tab Streamlit app: project overview and a prediction form with a visual score gauge. |
+| `train_model.py` | Rebuilds the pipeline (cleaning + encoding + Random Forest) from `dataset.csv` and saves `rf_pipeline.pkl` + `metadata.json` + `eda_summary.json`. |
+| `app.py` | Two-tab Streamlit app: an EDA-driven project overview and a prediction form with a visual score gauge. |
 | `requirements.txt` | Dependencies. |
 | `eda_models.ipynb` | Original exploration notebook — EDA, feature engineering, and the model comparison the app's Overview tab summarizes. |
 | `rf_pipeline.pkl` *(generated)* | Fitted pipeline (encoders + model), produced by `train_model.py`. Not committed — regenerate it locally. |
 | `metadata.json` *(generated)* | Dropdown options, slider ranges, and test metrics, produced by `train_model.py`. Not committed — regenerate it locally. |
+| `eda_summary.json` *(generated)* | Aggregated correlations and group trends, produced by `train_model.py`. Safe to commit and deploy — contains no individual student rows. |
 
 ## Notes / assumptions
 
@@ -94,3 +101,16 @@ prediction back — no manual encoding logic duplicated in the app.
   the notebook's evaluation; it isn't recomputed by the app.
 - This is an educational project, not a clinical or diagnostic tool — the
   app says so explicitly next to every prediction.
+
+## Troubleshooting
+
+- **"Model files not found" error in the app** — you haven't run
+  `python train_model.py` yet, or it didn't produce output in this folder.
+  Confirm `dataset.csv` is present first.
+- **`FileNotFoundError: dataset.csv`** — download the dataset from Kaggle
+  and place it in the same folder as `train_model.py` before training.
+- **Dropdown values look different from what you expected** — they're
+  pulled live from your `dataset.csv`; if you're using a modified or partial
+  copy of the dataset, retrain to refresh `metadata.json`.
+- **Port already in use** — run `streamlit run app.py --server.port 8502`
+  (or any free port).
