@@ -6,9 +6,10 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(
-    page_title="Social Media Addiction Predictor",
-    page_icon="📱",
-    layout="centered",
+    page_title="Student Social Media Addiction Predictor",
+    page_icon="🌙",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 APP_DIR = Path(__file__).parent
@@ -32,6 +33,185 @@ MODEL_COMPARISON = pd.DataFrame(
 )
 
 
+# --------------------------------------------------------------------------
+# Design system — a small "digital wellbeing" palette: dusk-toned ink and
+# paper, a teal accent for calm/healthy states, amber and clay for rising
+# and high risk. Fraunces carries headlines, Inter carries everything else.
+# --------------------------------------------------------------------------
+CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+    --ink: #20232B;
+    --paper: #F6F5F1;
+    --panel: #FFFFFF;
+    --line: #E4E1D8;
+    --teal: #1F6F6B;
+    --teal-soft: #E4F0EE;
+    --amber: #C98A2B;
+    --amber-soft: #FBEEDA;
+    --clay: #B0502F;
+    --clay-soft: #F7E7DF;
+    --muted: #6B6E76;
+}
+
+html, body, [class*="css"]  {
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+}
+
+.stApp {
+    background-color: var(--paper);
+}
+
+h1, h2, h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: var(--panel);
+    border-right: 1px solid var(--line);
+}
+
+.hero {
+    padding: 0.25rem 0 1.25rem 0;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 1.75rem;
+}
+.hero h1 {
+    font-size: 2.3rem;
+    margin-bottom: 0.35rem;
+}
+.hero p {
+    color: var(--muted);
+    font-size: 1.02rem;
+    max-width: 620px;
+    line-height: 1.5;
+}
+
+.stat-row { display: flex; gap: 0.9rem; margin: 1rem 0 1.6rem 0; flex-wrap: wrap; }
+.stat-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    flex: 1;
+    min-width: 140px;
+}
+.stat-card .num {
+    font-family: 'Fraunces', serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--teal);
+    line-height: 1.1;
+}
+.stat-card .label {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-top: 0.2rem;
+}
+
+.section-block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.3rem 1.5rem;
+    margin-bottom: 1.3rem;
+}
+.section-block h3 { margin-top: 0; font-size: 1.15rem; }
+.section-block ul { margin-bottom: 0; padding-left: 1.2rem; }
+.section-block li { margin-bottom: 0.45rem; line-height: 1.5; color: #383B42; }
+
+.feature-pill {
+    display: inline-block;
+    background: var(--teal-soft);
+    color: var(--teal);
+    border-radius: 999px;
+    padding: 0.25rem 0.7rem;
+    margin: 0.15rem 0.3rem 0.15rem 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.gauge-wrap {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.4rem 1.6rem 1.1rem 1.6rem;
+    margin-top: 0.6rem;
+}
+.gauge-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+}
+.gauge-score {
+    font-family: 'Fraunces', serif;
+    font-size: 2.6rem;
+    font-weight: 600;
+}
+.gauge-track {
+    position: relative;
+    height: 10px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--teal) 0%, var(--teal) 33%, var(--amber) 33%, var(--amber) 66%, var(--clay) 66%, var(--clay) 100%);
+    margin: 0.9rem 0 0.5rem 0;
+}
+.gauge-marker {
+    position: absolute;
+    top: -6px;
+    width: 3px;
+    height: 22px;
+    background: var(--ink);
+    border-radius: 2px;
+}
+.gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+.risk-badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-top: 0.6rem;
+}
+.risk-low { background: var(--teal-soft); color: var(--teal); }
+.risk-mid { background: var(--amber-soft); color: var(--amber); }
+.risk-high { background: var(--clay-soft); color: var(--clay); }
+
+.caption-muted { color: var(--muted); font-size: 0.85rem; margin-top: 0.6rem; }
+
+div[data-testid="stForm"] {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.3rem 1.5rem 0.6rem 1.5rem;
+}
+
+.stButton > button, div[data-testid="stFormSubmitButton"] button {
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+}
+.stButton > button:hover, div[data-testid="stFormSubmitButton"] button:hover {
+    background: var(--teal);
+    color: white;
+}
+</style>
+"""
+st.markdown(CSS, unsafe_allow_html=True)
+
+
 @st.cache_resource
 def load_artifacts():
     if not PIPELINE_PATH.exists() or not METADATA_PATH.exists():
@@ -42,80 +222,171 @@ def load_artifacts():
     return pipeline, metadata
 
 
+def render_gauge(score: float, lo: float = 1.0, hi: float = 9.0) -> str:
+    """Build an inline HTML gauge for the 1-9 addiction score scale."""
+    pct = max(0.0, min(1.0, (score - lo) / (hi - lo))) * 100
+
+    if score < 4:
+        risk_label, risk_class = "Low predicted risk", "risk-low"
+    elif score < 7:
+        risk_label, risk_class = "Moderate predicted risk", "risk-mid"
+    else:
+        risk_label, risk_class = "High predicted risk", "risk-high"
+
+    return f"""
+    <div class="gauge-wrap">
+        <div class="gauge-title">Predicted addiction score</div>
+        <div class="gauge-score">{score:.1f} <span style="font-size:1.1rem;color:var(--muted);font-family:'Inter',sans-serif;">/ 9</span></div>
+        <div class="gauge-track">
+            <div class="gauge-marker" style="left: calc({pct}% - 2px);"></div>
+        </div>
+        <div class="gauge-labels"><span>1 · Low</span><span>5 · Moderate</span><span>9 · High</span></div>
+        <span class="risk-badge {risk_class}">{risk_label}</span>
+    </div>
+    """
+
+
 pipeline, metadata = load_artifacts()
 
-st.title("📱 Student Social Media Addiction Predictor")
+# ------------------------------------------------------------------ Sidebar --
+with st.sidebar:
+    st.markdown("### 🌙 Digital Wellbeing")
+    st.caption("Social media addiction predictor")
+    st.markdown("---")
+    st.markdown(
+        "A regression model trained on the **Student Social Media Addiction** "
+        "dataset (Kaggle), estimating a self-reported addiction score from "
+        "usage, sleep, and academic/lifestyle context."
+    )
+    if metadata:
+        m = metadata["test_metrics"]
+        st.markdown("**Deployed model**")
+        st.markdown(f"Random Forest · R² {m['R2']} · RMSE {m['RMSE']}")
+    st.markdown("---")
+    st.caption(
+        "Educational project — not a clinical or diagnostic tool. "
+        "Predictions reflect patterns in survey data, not individual assessment."
+    )
 
-tab_overview, tab_predict = st.tabs(["📊 Project Overview", "🔮 Predict My Score"])
+# --------------------------------------------------------------------- Hero --
+st.markdown(
+    """
+    <div class="hero">
+        <h1>Student Social Media Addiction Predictor</h1>
+        <p>Estimate a student's social media addiction score from demographic,
+        academic, and usage habits — and see which patterns the underlying
+        data actually supports.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+tab_overview, tab_predict = st.tabs(["Project Overview", "Predict My Score"])
 
 # ---------------------------------------------------------------- Overview --
 with tab_overview:
-    st.subheader("What this project does")
     st.markdown(
         """
-This project predicts a Gen Z student's **social media addiction score**
-(on a 1–9 scale) from demographic, academic, and usage-related information.
-
-- **Problem type:** Regression
-- **Dataset:** Student Social Media Addiction Analysis Dataset (Kaggle)
-- **Original shape:** 705 rows × 12 columns (705 students, one row each)
-- **Target:** `Addicted_Score`
-        """
+        <div class="stat-row">
+            <div class="stat-card"><div class="num">705</div><div class="label">Students surveyed</div></div>
+            <div class="stat-card"><div class="num">8</div><div class="label">Features used by the model</div></div>
+            <div class="stat-card"><div class="num">1–9</div><div class="label">Addiction score scale</div></div>
+            <div class="stat-card"><div class="num">0.98</div><div class="label">Test R² (Random Forest)</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.subheader("Key EDA takeaways")
-    st.markdown(
-        """
-- Daily usage hours and addiction score are positively related — more time on
-  social media tracks with a higher addiction score, though the relationship
-  isn't perfectly linear.
-- Country showed no meaningful relationship with the target, so it was dropped.
-- `Mental_Health_Score` and `Conflicts_Over_Social_Media` were highly
-  correlated with each other, so only one (`Mental_Health_Score`) was kept to
-  avoid redundant/collinear features.
-- `Avg_Daily_Usage_Hours` and `Sleep_Hours_Per_Night` were combined into a
-  single engineered feature, `Usage_Sleep_Ratio`, to capture the trade-off
-  between the two directly.
-        """
-    )
+    col_left, col_right = st.columns([1.1, 1])
 
-    st.subheader("Features used by the model")
-    st.markdown(
-        """
-`Age`, `Gender`, `Academic_Level`, `Most_Used_Platform`,
-`Affects_Academic_Performance`, `Mental_Health_Score`, `Relationship_Status`,
-`Usage_Sleep_Ratio` (derived from daily usage hours ÷ sleep hours)
-        """
-    )
-
-    st.subheader("Model comparison")
-    st.caption("Several regressors were trained and compared on held-out test data:")
-    st.dataframe(
-        MODEL_COMPARISON.sort_values("RMSE").reset_index(drop=True),
-        use_container_width=True,
-        hide_index=True,
-    )
-    st.markdown(
-        "**Random Forest** had the lowest RMSE and highest R² (≈0.98), so it "
-        "was selected as the deployed model."
-    )
-
-    if metadata:
-        m = metadata["test_metrics"]
-        st.info(
-            f"Currently loaded pipeline's held-out performance — "
-            f"MAE: {m['MAE']} · RMSE: {m['RMSE']} · R²: {m['R2']}"
+    with col_left:
+        st.markdown(
+            """
+            <div class="section-block">
+                <h3>What this predicts</h3>
+                <p style="color:#383B42; line-height:1.55;">
+                A regression model estimates a Gen Z student's
+                <strong>social media addiction score</strong> on a 1–9 scale,
+                using the <strong>Student Social Media Addiction Analysis</strong>
+                dataset from Kaggle (705 students, one row each). The target
+                column is <code>Addicted_Score</code>.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
+        st.markdown(
+            """
+            <div class="section-block">
+                <h3>Key EDA takeaways</h3>
+                <ul>
+                    <li>Daily usage hours and addiction score trend together —
+                    more time on social media tracks with a higher score,
+                    though the relationship isn't perfectly linear.</li>
+                    <li>Country showed no meaningful relationship with the
+                    target, so it was dropped.</li>
+                    <li><code>Mental_Health_Score</code> and
+                    <code>Conflicts_Over_Social_Media</code> were highly
+                    correlated; only <code>Mental_Health_Score</code> was kept
+                    to avoid redundant, collinear features.</li>
+                    <li><code>Avg_Daily_Usage_Hours</code> and
+                    <code>Sleep_Hours_Per_Night</code> were combined into one
+                    engineered feature, <code>Usage_Sleep_Ratio</code>, to
+                    capture the trade-off between the two directly.</li>
+                </ul>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_right:
+        st.markdown('<div class="section-block">', unsafe_allow_html=True)
+        st.markdown("<h3>Features used by the model</h3>", unsafe_allow_html=True)
+        feature_pills = [
+            "Age", "Gender", "Academic Level", "Most Used Platform",
+            "Affects Academic Performance", "Mental Health Score",
+            "Relationship Status", "Usage/Sleep Ratio",
+        ]
+        st.markdown(
+            "".join(f'<span class="feature-pill">{f}</span>' for f in feature_pills),
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="caption-muted"><code>Usage_Sleep_Ratio</code> is '
+            'derived from daily usage hours ÷ sleep hours.</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown('<div class="section-block">', unsafe_allow_html=True)
+        st.markdown("<h3>Model comparison</h3>", unsafe_allow_html=True)
+        st.caption("Several regressors, trained and compared on held-out test data:")
+        ranked = MODEL_COMPARISON.sort_values("RMSE").reset_index(drop=True)
+        st.bar_chart(ranked.set_index("Model")["RMSE"], height=220)
+        st.dataframe(ranked, use_container_width=True, hide_index=True)
+        st.markdown(
+            "**Random Forest** had the lowest RMSE and highest R² (≈0.98), "
+            "so it was selected as the deployed model."
+        )
+        if metadata:
+            m = metadata["test_metrics"]
+            st.info(
+                f"Currently loaded pipeline — MAE {m['MAE']} · "
+                f"RMSE {m['RMSE']} · R² {m['R2']}"
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# ------------------------------------------------------------------ Predict --
 with tab_predict:
     if pipeline is None:
         st.error(
-            "Model files not found. Run `train_model.py` (with `dataset.csv` in "
-            "this folder) first — it produces `rf_pipeline.pkl` and "
+            "Model files not found. Run `train_model.py` (with `dataset.csv` "
+            "in this folder) first — it produces `rf_pipeline.pkl` and "
             "`metadata.json` that this app needs."
         )
     else:
-        st.subheader("Tell us about yourself")
+        st.markdown("#### Tell us about yourself")
         opts = metadata["dropdown_options"]
         ranges = metadata["raw_ranges"]
 
@@ -170,6 +441,7 @@ with tab_predict:
                     step=0.1,
                 )
 
+            st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Predict my addiction score", use_container_width=True)
 
         if submitted:
@@ -193,17 +465,12 @@ with tab_predict:
             prediction = float(pipeline.predict(input_row)[0])
             prediction = max(ranges["Addicted_Score"][0], min(ranges["Addicted_Score"][1], prediction))
 
-            st.divider()
-            st.metric("Predicted Addiction Score", f"{prediction:.1f} / 9")
-
-            if prediction < 4:
-                st.success("Low predicted addiction risk.")
-            elif prediction < 7:
-                st.warning("Moderate predicted addiction risk.")
-            else:
-                st.error("High predicted addiction risk.")
-
-            st.caption(
-                "This is an estimate from a model trained on survey data — not a "
-                "clinical assessment."
+            st.markdown(
+                render_gauge(prediction, ranges["Addicted_Score"][0], ranges["Addicted_Score"][1]),
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="caption-muted">This is an estimate from a model '
+                'trained on survey data — not a clinical assessment.</div>',
+                unsafe_allow_html=True,
             )
