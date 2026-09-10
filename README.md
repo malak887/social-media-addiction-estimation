@@ -101,16 +101,3 @@ prediction back — no manual encoding logic duplicated in the app.
   the notebook's evaluation; it isn't recomputed by the app.
 - This is an educational project, not a clinical or diagnostic tool — the
   app says so explicitly next to every prediction.
-
-## Troubleshooting
-
-- **"Model files not found" error in the app** — you haven't run
-  `python train_model.py` yet, or it didn't produce output in this folder.
-  Confirm `dataset.csv` is present first.
-- **`FileNotFoundError: dataset.csv`** — download the dataset from Kaggle
-  and place it in the same folder as `train_model.py` before training.
-- **Dropdown values look different from what you expected** — they're
-  pulled live from your `dataset.csv`; if you're using a modified or partial
-  copy of the dataset, retrain to refresh `metadata.json`.
-- **Port already in use** — run `streamlit run app.py --server.port 8502`
-  (or any free port).
